@@ -1,64 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { prisma } from '@/lib/db'
+import { getUserFromSession, getOrCreateUser, applySessionCookie } from '@/lib/session'
 import { saveProfile, getProfile } from '@/services/profile.service'
-
-const SESSION_COOKIE = 'planificador_session'
-
-async function resolveUser() {
-  const cookieStore = cookies()
-  let sessionId = cookieStore.get(SESSION_COOKIE)?.value
-  if (!sessionId) sessionId = crypto.randomUUID()
-
-  const user = await prisma.user.upsert({
-    where: { sessionId },
-    update: {},
-    create: { sessionId },
-  })
-  return { user, sessionId }
-}
+import { profileSchema } from '@/lib/validators/profile'
+import { apiError } from '@/lib/errors'
 
 export async function GET() {
   try {
-    const { user } = await resolveUser()
+    const user = await getUserFromSession()
+    if (!user) return NextResponse.json({ profile: null })
+
     const profile = await getProfile(user.id)
     return NextResponse.json({ profile })
   } catch (error) {
     console.error('[GET /api/profile]', error)
-    return NextResponse.json({ error: 'Error al obtener perfil' }, { status: 500 })
+    return apiError('Error al obtener perfil', 500, 'GET /api/profile')
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { objetivo, alergias, preferencias, personas } = body
+    const parsed = profileSchema.safeParse(body)
 
-    if (!objetivo) {
-      return NextResponse.json({ error: 'El objetivo es requerido' }, { status: 400 })
-    }
-    if (!personas || personas < 1) {
-      return NextResponse.json({ error: 'El número de personas debe ser mayor a 0' }, { status: 400 })
+    if (!parsed.success) {
+      const message = parsed.error.errors[0]?.message ?? 'Datos inválidos'
+      return apiError(message, 400)
     }
 
-    const { user, sessionId } = await resolveUser()
-    const profile = await saveProfile(user.id, {
-      objetivo,
-      alergias: Array.isArray(alergias) ? alergias : [],
-      preferencias: Array.isArray(preferencias) ? preferencias : [],
-      personas: Number(personas),
-    })
+    const { objetivo, alergias, preferencias, personas } = parsed.data
+    const { user, sessionId, isNew } = await getOrCreateUser()
 
-    const response = NextResponse.json({ profile, sessionId })
-    response.cookies.set(SESSION_COOKIE, sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 365,
-      path: '/',
-    })
+    const profile = await saveProfile(user.id, { objetivo, alergias, preferencias, personas })
+
+    const response = NextResponse.json({ profile })
+    if (isNew) applySessionCookie(response, sessionId)
     return response
   } catch (error) {
     console.error('[POST /api/profile]', error)
-    return NextResponse.json({ error: 'Error al guardar perfil' }, { status: 500 })
+    return apiError('Error al guardar perfil', 500, 'POST /api/profile')
   }
 }

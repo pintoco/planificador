@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState('')
+  const [genWarning, setGenWarning] = useState('')
   const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
@@ -47,12 +48,14 @@ export default function DashboardPage() {
 
   async function handleGenerate() {
     setGenError('')
+    setGenWarning('')
     setGenerating(true)
     try {
       const res = await fetch('/api/menu/generate', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setHasMenu(true)
+      if (data.usedFallback) setGenWarning(data.message)
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Error al generar')
     } finally {
@@ -124,6 +127,11 @@ export default function DashboardPage() {
           </p>
           {genError && (
             <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg mb-4">{genError}</p>
+          )}
+          {genWarning && (
+            <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-4">
+              ⚠️ {genWarning}
+            </p>
           )}
           <div className="flex flex-wrap gap-3">
             <button
