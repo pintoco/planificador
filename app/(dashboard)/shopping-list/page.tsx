@@ -39,7 +39,7 @@ export default function ShoppingListPage() {
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Sin lista de compras</h2>
         <p className="text-gray-500 text-sm mb-6">Genera un menú semanal para obtener tu lista</p>
         <Link
-          href="/dashboard"
+          href="/"
           className="bg-green-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-green-700 transition-colors"
         >
           Ir al Dashboard
@@ -60,7 +60,7 @@ export default function ShoppingListPage() {
           </p>
         </div>
         <Link
-          href="/dashboard/menu"
+          href="/menu"
           className="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
         >
           Ver menú 🍽️

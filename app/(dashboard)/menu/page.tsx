@@ -45,7 +45,7 @@ export default function MenuPage() {
         <h2 className="text-xl font-semibold text-gray-900 mb-2">Sin menú generado</h2>
         <p className="text-gray-500 text-sm mb-6">Ve al dashboard y genera tu primer menú semanal</p>
         <Link
-          href="/dashboard"
+          href="/"
           className="bg-green-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-green-700 transition-colors"
         >
           Ir al Dashboard
@@ -66,7 +66,7 @@ export default function MenuPage() {
           )}
         </div>
         <Link
-          href="/dashboard/shopping-list"
+          href="/shopping-list"
           className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-1.5"
         >
           🛒 Lista de compras

@@ -142,13 +142,13 @@ export default function DashboardPage() {
             {hasMenu && (
               <>
                 <Link
-                  href="/dashboard/menu"
+                  href="/menu"
                   className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium px-5 py-2.5 rounded-lg transition-colors"
                 >
                   Ver menú →
                 </Link>
                 <Link
-                  href="/dashboard/shopping-list"
+                  href="/shopping-list"
                   className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium px-5 py-2.5 rounded-lg transition-colors"
                 >
                   Ver lista 🛒

@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navLinks = [
-  { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  { href: '/dashboard/menu', label: 'Menú Semanal', icon: '🍽️' },
-  { href: '/dashboard/shopping-list', label: 'Lista de Compras', icon: '🛒' },
+  { href: '/', label: 'Dashboard', icon: '🏠' },
+  { href: '/menu', label: 'Menú Semanal', icon: '🍽️' },
+  { href: '/shopping-list', label: 'Lista de Compras', icon: '🛒' },
 ]
 
 export default function Navigation() {
@@ -26,7 +26,7 @@ export default function Navigation() {
                 key={link.href}
                 href={link.href}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  pathname === link.href
+                  (link.href === '/' ? pathname === '/' : pathname.startsWith(link.href))
                     ? 'bg-green-50 text-green-700'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
