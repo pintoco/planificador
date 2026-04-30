@@ -114,7 +114,7 @@ Cada comida debe ser específica con ingredientes principales.`
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    max_tokens: 8096,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -159,7 +159,7 @@ Consolida ingredientes repetidos. Ajusta cantidades para ${personas} persona(s).
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    max_tokens: 4096,
     messages: [{ role: 'user', content: prompt }],
   })
 
