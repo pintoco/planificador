@@ -38,12 +38,14 @@ Aplicación web que genera menús semanales personalizados con IA y listas de co
 │   └── ShoppingListView.tsx
 ├── lib/
 │   ├── db.ts                     # PrismaClient singleton
-│   └── ai/claude.ts              # Integración Claude API
+│   ├── session.ts                # Gestión de sesión por cookie
+│   ├── errors.ts                 # Helper apiError centralizado
+│   ├── validators/profile.ts     # Validación Zod del perfil
+│   └── ai/claude.ts              # Integración Claude API + fallback
 ├── services/
 │   ├── profile.service.ts
 │   ├── menu.service.ts
-│   ├── shopping-list.service.ts
-│   └── price-comparator.service.ts  # Fase 2 (stub)
+│   └── shopping-list.service.ts
 └── prisma/schema.prisma
 ```
 
@@ -75,8 +77,9 @@ La app queda disponible en `http://localhost:3000`.
 | Variable | Descripción |
 |---|---|
 | `DATABASE_URL` | URL de conexión PostgreSQL |
-| `ANTHROPIC_API_KEY` | API Key de Anthropic (Claude) |
-| `NEXT_PUBLIC_APP_URL` | URL pública de la aplicación |
+| `ANTHROPIC_API_KEY` | API Key de Anthropic — obtener en [console.anthropic.com](https://console.anthropic.com) → API Keys |
+
+> Si `ANTHROPIC_API_KEY` no está configurada o la cuenta no tiene crédito, la app usa un menú de plantilla básica como fallback (no falla con error).
 
 ## Deploy en Railway
 
@@ -95,8 +98,10 @@ Cada `git push` a `master` dispara automáticamente:
 
 ```
 build: npm install && prisma generate && next build
-start: prisma migrate deploy && npm start
+start: prisma db push --accept-data-loss && npm start
 ```
+
+> Se usa `db push` (no `migrate deploy`) porque el proyecto no tiene archivos de migración. Sincroniza el schema directamente con la base de datos.
 
 ### Comandos útiles
 
@@ -131,12 +136,23 @@ WeeklyMenu    # Menú JSON generado por IA
 ShoppingList  # Lista de compras JSON por categorías
 ```
 
+## Características de producción
+
+- **Healthcheck real** — `/api/health` verifica conexión a la base de datos
+- **Fallback de IA** — si Claude no está disponible, genera un menú básico sin romper la app
+- **Validación Zod** — entradas del perfil validadas en el servidor
+- **Sesión centralizada** — cookie `planificador_session` gestionada en un solo lugar
+- **Manejo de errores** — errores 5xx devuelven mensajes genéricos, 4xx devuelven el detalle real
+
 ## Roadmap
 
 - [x] Perfil de usuario
 - [x] Generación de menú con Claude IA
 - [x] Lista de compras automática
 - [x] Deploy automático en Railway
+- [x] Healthcheck con verificación de DB
+- [x] Fallback cuando Claude no está disponible
+- [x] Validación de entradas con Zod
 - [ ] **Fase 2:** Comparador de precios (Lider / Jumbo Chile)
 - [ ] Exportar lista de compras a PDF
 - [ ] Historial de menús anteriores
