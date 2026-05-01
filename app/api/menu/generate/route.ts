@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getUserFromSession } from '@/lib/session'
-import { generateAndSaveMenu } from '@/services/menu.service'
+import { generateAndSaveMenu, countMenusToday } from '@/services/menu.service'
 import { apiError } from '@/lib/errors'
+import { logger } from '@/lib/logger'
+
+const DAILY_LIMIT = 5
 
 export async function POST() {
   try {
@@ -10,11 +13,15 @@ export async function POST() {
       return apiError('Sesión no encontrada. Completa tu perfil primero.', 401)
     }
 
-    console.log('[POST /api/menu/generate] Iniciando generación para user:', user.id)
+    const todayCount = await countMenusToday(user.id)
+    if (todayCount >= DAILY_LIMIT) {
+      logger.warn('menu.rate_limit', { userId: user.id, metadata: { todayCount } })
+      return apiError(`Límite diario alcanzado (${DAILY_LIMIT} menús por día). Vuelve mañana.`, 429)
+    }
+
+    logger.info('menu.generate.request', { userId: user.id })
 
     const { menu, lista, usedFallback } = await generateAndSaveMenu(user.id)
-
-    console.log('[POST /api/menu/generate] Completado menuId:', menu.id, 'fallback:', usedFallback)
 
     return NextResponse.json({
       menuId: menu.id,
@@ -27,7 +34,7 @@ export async function POST() {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido'
-    console.error('[POST /api/menu/generate]', message)
+    logger.error('menu.generate.error', { metadata: { message } })
     return apiError(message, 500, 'POST /api/menu/generate')
   }
 }

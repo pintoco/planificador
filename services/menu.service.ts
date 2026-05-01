@@ -8,6 +8,7 @@ import {
   CategoriaCompras,
 } from '@/lib/ai/claude'
 import { getProfile } from './profile.service'
+import { logger } from '@/lib/logger'
 
 export async function generateAndSaveMenu(userId: string) {
   const profile = await getProfile(userId)
@@ -18,7 +19,7 @@ export async function generateAndSaveMenu(userId: string) {
   let usedFallback = false
 
   try {
-    console.log('[menu.service] Llamando a Claude para userId:', userId)
+    logger.info('menu.generate.start', { userId })
     menuData = await generarMenuSemanal({
       objetivo: profile.objetivo,
       alergias: profile.alergias,
@@ -26,9 +27,10 @@ export async function generateAndSaveMenu(userId: string) {
       personas: profile.personas,
     })
     listaItems = await generarListaCompras(menuData, profile.personas)
+    logger.info('menu.generate.success', { userId })
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    console.warn('[menu.service] Claude no disponible, usando fallback. Razón:', reason)
+    logger.warn('menu.generate.fallback', { userId, metadata: { reason } })
     menuData = menuFallback()
     listaItems = listaFallback()
     usedFallback = true
@@ -47,7 +49,7 @@ export async function generateAndSaveMenu(userId: string) {
     data: { userId, menuId: menu.id, items: listaItems as object },
   })
 
-  console.log('[menu.service] Guardado menuId:', menu.id, '| listaId:', lista.id, '| fallback:', usedFallback)
+  logger.info('menu.saved', { userId, metadata: { menuId: menu.id, listaId: lista.id, usedFallback } })
   return { menu, lista, usedFallback }
 }
 
@@ -63,5 +65,13 @@ export async function getMenuById(menuId: string, userId: string) {
   return prisma.weeklyMenu.findFirst({
     where: { id: menuId, userId },
     include: { shoppingList: true },
+  })
+}
+
+export async function countMenusToday(userId: string): Promise<number> {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  return prisma.weeklyMenu.count({
+    where: { userId, createdAt: { gte: startOfDay } },
   })
 }

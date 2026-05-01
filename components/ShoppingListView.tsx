@@ -13,6 +13,25 @@ interface CategoriaCompras {
   items: IngredienteItem[]
 }
 
+interface PrecioProducto {
+  supermercado: 'lider' | 'jumbo'
+  nombre: string
+  precio: number
+  unidad: string
+}
+
+interface ComparacionPrecio {
+  producto: string
+  precios: PrecioProducto[]
+  mejorPrecio: PrecioProducto | null
+  ahorro: number
+}
+
+interface PricesResult {
+  comparaciones: ComparacionPrecio[]
+  resumen: { total: number; encontrados: number; ahorroTotal: number }
+}
+
 const CATEGORIA_ICONS: Record<string, string> = {
   'Frutas y Verduras': '🥦',
   'Carnes y Pescados': '🥩',
@@ -22,12 +41,20 @@ const CATEGORIA_ICONS: Record<string, string> = {
   Otros: '🛍️',
 }
 
+const SUPER_LABELS: Record<string, string> = {
+  lider: 'Lider',
+  jumbo: 'Jumbo',
+}
+
 interface ShoppingListViewProps {
   categorias: CategoriaCompras[]
 }
 
 export default function ShoppingListView({ categorias }: ShoppingListViewProps) {
   const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [prices, setPrices] = useState<PricesResult | null>(null)
+  const [loadingPrices, setLoadingPrices] = useState(false)
+  const [showPrices, setShowPrices] = useState(false)
 
   function toggleItem(key: string) {
     setChecked((prev) => {
@@ -37,11 +64,28 @@ export default function ShoppingListView({ categorias }: ShoppingListViewProps) 
     })
   }
 
+  async function handleCompararPrecios() {
+    const items = categorias.flatMap((c) => c.items.map((i) => i.nombre))
+    if (items.length === 0) return
+    setLoadingPrices(true)
+    setShowPrices(true)
+    try {
+      const res = await fetch(`/api/prices?items=${encodeURIComponent(items.join(','))}`)
+      const data = await res.json()
+      setPrices(data)
+    } catch {
+      setPrices(null)
+    } finally {
+      setLoadingPrices(false)
+    }
+  }
+
   const totalItems = categorias.reduce((acc, c) => acc + c.items.length, 0)
   const completados = checked.size
 
   return (
     <div className="space-y-4">
+      {/* Barra de progreso */}
       <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
         <span className="text-sm text-green-700 font-medium">
           {completados} / {totalItems} productos marcados
@@ -62,6 +106,99 @@ export default function ShoppingListView({ categorias }: ShoppingListViewProps) 
         )}
       </div>
 
+      {/* Botón comparar precios */}
+      <button
+        onClick={handleCompararPrecios}
+        disabled={loadingPrices}
+        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-5 py-2.5 rounded-lg transition-colors text-sm"
+      >
+        {loadingPrices ? (
+          <>
+            <span className="animate-spin">⏳</span> Buscando precios...
+          </>
+        ) : (
+          <>🛒 Comparar precios Lider vs Jumbo</>
+        )}
+      </button>
+
+      {/* Panel de comparación */}
+      {showPrices && (
+        <div className="bg-white rounded-xl border border-blue-200 overflow-hidden">
+          <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+            <h3 className="font-semibold text-blue-900 text-sm">Comparación de precios (CLP)</h3>
+            <button
+              onClick={() => setShowPrices(false)}
+              className="text-xs text-blue-500 hover:text-blue-700"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          {loadingPrices ? (
+            <div className="p-6 text-center text-gray-400 text-sm">Cargando precios...</div>
+          ) : !prices ? (
+            <div className="p-6 text-center text-red-500 text-sm">No se pudieron obtener los precios</div>
+          ) : (
+            <div className="p-4 space-y-3">
+              {prices.resumen.ahorroTotal > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">
+                  Ahorro potencial eligiendo el más barato: <strong>${prices.resumen.ahorroTotal.toLocaleString('es-CL')} CLP</strong>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400">
+                Precios aproximados. {prices.resumen.encontrados} de {prices.resumen.total} productos encontrados.
+              </p>
+
+              <div className="space-y-2">
+                {prices.comparaciones
+                  .filter((c) => c.precios.length > 0)
+                  .map((c) => (
+                    <div key={c.producto} className="border border-gray-100 rounded-lg p-3">
+                      <p className="text-sm font-medium text-gray-800 capitalize mb-2">{c.producto}</p>
+                      <div className="flex gap-3">
+                        {c.precios.map((p) => (
+                          <div
+                            key={p.supermercado}
+                            className={`flex-1 rounded-md p-2 text-center text-xs ${
+                              c.mejorPrecio?.supermercado === p.supermercado
+                                ? 'bg-green-100 border border-green-300'
+                                : 'bg-gray-50 border border-gray-200'
+                            }`}
+                          >
+                            <div className="font-semibold text-gray-700">{SUPER_LABELS[p.supermercado]}</div>
+                            <div className={`font-bold mt-0.5 ${c.mejorPrecio?.supermercado === p.supermercado ? 'text-green-700' : 'text-gray-600'}`}>
+                              ${p.precio.toLocaleString('es-CL')}
+                            </div>
+                            <div className="text-gray-400">{p.unidad}</div>
+                            {c.mejorPrecio?.supermercado === p.supermercado && (
+                              <div className="text-green-600 font-medium mt-0.5">Más barato</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {prices.comparaciones.filter((c) => c.precios.length === 0).length > 0 && (
+                <details className="text-xs text-gray-400">
+                  <summary className="cursor-pointer">
+                    {prices.comparaciones.filter((c) => c.precios.length === 0).length} productos sin precio
+                  </summary>
+                  <ul className="mt-1 ml-3 space-y-0.5">
+                    {prices.comparaciones
+                      .filter((c) => c.precios.length === 0)
+                      .map((c) => <li key={c.producto} className="capitalize">{c.producto}</li>)}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lista de productos */}
       {categorias.map((cat) => (
         <div key={cat.categoria} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
