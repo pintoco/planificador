@@ -72,6 +72,10 @@ export default function ShoppingListView({ categorias }: ShoppingListViewProps) 
     try {
       const res = await fetch(`/api/prices?items=${encodeURIComponent(items.join(','))}`)
       const data = await res.json()
+      if (!res.ok || !data.comparaciones) {
+        setPrices(null)
+        return
+      }
       setPrices(data)
     } catch {
       setPrices(null)

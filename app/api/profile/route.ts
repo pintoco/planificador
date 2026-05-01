@@ -3,6 +3,7 @@ import { getUserFromSession, getOrCreateUser, applySessionCookie } from '@/lib/s
 import { saveProfile, getProfile } from '@/services/profile.service'
 import { profileSchema } from '@/lib/validators/profile'
 import { apiError } from '@/lib/errors'
+import { logger } from '@/lib/logger'
 
 export async function GET() {
   try {
@@ -12,7 +13,7 @@ export async function GET() {
     const profile = await getProfile(user.id)
     return NextResponse.json({ profile })
   } catch (error) {
-    console.error('[GET /api/profile]', error)
+    logger.error('profile.get.error', { metadata: { message: error instanceof Error ? error.message : String(error) } })
     return apiError('Error al obtener perfil', 500, 'GET /api/profile')
   }
 }
@@ -31,12 +32,13 @@ export async function POST(req: NextRequest) {
     const { user, sessionId, isNew } = await getOrCreateUser()
 
     const profile = await saveProfile(user.id, { objetivo, alergias, preferencias, personas })
+    logger.info('profile.saved', { userId: user.id, metadata: { isNew } })
 
     const response = NextResponse.json({ profile })
     if (isNew) applySessionCookie(response, sessionId)
     return response
   } catch (error) {
-    console.error('[POST /api/profile]', error)
+    logger.error('profile.post.error', { metadata: { message: error instanceof Error ? error.message : String(error) } })
     return apiError('Error al guardar perfil', 500, 'POST /api/profile')
   }
 }

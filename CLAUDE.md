@@ -66,6 +66,49 @@ Modelos Prisma:
 - Variables requeridas: `DATABASE_URL`, `ANTHROPIC_API_KEY`
 - `DATABASE_URL` debe apuntar al servicio PostgreSQL de Railway usando la referencia `${{Postgres.DATABASE_URL}}`
 
+### Cuándo cambiar a `prisma migrate deploy`
+
+Actualmente se usa `prisma db push` porque no existen archivos en `prisma/migrations/`.
+Cambiar al flujo de migraciones cuando:
+1. Se ejecute `npx prisma migrate dev --name init` localmente (crea `prisma/migrations/`)
+2. Se haga commit de esa carpeta al repositorio
+3. Se cambie `startCommand` en `railway.json` a: `node_modules/.bin/prisma migrate deploy && npm start`
+4. Se actualice el script `build` en `package.json` eliminando el `prisma db push`
+
+**No cambiar antes** — `migrate deploy` sin archivos de migración falla con error en Railway.
+
+## Rate limiting
+
+- Límite: 5 generaciones de menú por usuario por día
+- Zona horaria del contador: UTC (Railway). El día resetea a las 00:00 UTC = ~21:00 CLT
+- Respuesta al exceder: HTTP 429 con mensaje en español
+- Implementado en: `app/api/menu/generate/route.ts` via `countMenusToday()` en `services/menu.service.ts`
+- No afecta: GET /api/menu, GET /api/shopping-list, GET /api/profile
+
+## Logs
+
+- Helper: `lib/logger.ts` — emite JSON por línea: `{ level, event, userId?, timestamp, metadata? }`
+- Visibles en: Railway → Deployments → Logs
+- Eventos registrados: `menu.generate.request`, `menu.generate.success`, `menu.generate.fallback`, `menu.rate_limit`, `profile.saved`, `prices.compare`
+- No se loguean: sessionId completo, datos personales, claves API
+
+## Comparador de precios (Fase 2)
+
+Estado actual: mock con precios CLP estáticos para ~30 productos chilenos.
+
+### Checklist para scraping real
+
+- [ ] `lib/scrapers/lider.scraper.ts` — implementar fetch a API interna de Lider.cl
+- [ ] `lib/scrapers/jumbo.scraper.ts` — implementar fetch a API interna de Jumbo.cl
+- [ ] Normalización de nombres de productos (ej: "pechuga" → "pechuga de pollo")
+- [ ] Cache de precios — guardar en BD o Redis con TTL de 1h para no hacer scraping en cada request
+- [ ] Modelo Prisma `PriceCache` — `{ producto, supermercado, precio, fetchedAt }`
+- [ ] Comparación total por supermercado — sumar todos los ítems encontrados por tienda
+- [ ] Manejo de rate limits / bloqueos de los sitios (User-Agent, delays)
+- [ ] Test de precios antes de mostrar (detectar precios anómalos)
+
+Archivos a modificar cuando se implemente: `services/price-comparator.service.ts`, `lib/scrapers/`, `app/api/prices/route.ts`.
+
 ## Convenciones
 
 - Las API routes llaman a los services, no a Prisma directamente
@@ -73,3 +116,4 @@ Modelos Prisma:
 - Los errores de Claude se capturan en `menu.service.ts`, no en la API route
 - `next.config.js` no tiene `output: 'standalone'` — era incompatible con el route group `(dashboard)`
 - No hay archivos de migración; usar siempre `prisma db push`
+- Todos los errores en API routes deben usar `logger.error()` + `apiError()`, nunca `console.error` directo

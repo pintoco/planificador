@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { compareProducts } from '@/services/price-comparator.service'
 import { apiError } from '@/lib/errors'
+import { logger } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,11 +16,13 @@ export async function GET(req: NextRequest) {
       .split(',')
       .map((p) => p.trim())
       .filter(Boolean)
-      .slice(0, 30) // máximo 30 productos por request
+      .slice(0, 30)
 
     if (productos.length === 0) {
       return apiError('Lista de productos vacía', 400)
     }
+
+    logger.info('prices.compare', { metadata: { count: productos.length } })
 
     const comparaciones = compareProducts(productos)
     const encontrados = comparaciones.filter((c) => c.precios.length > 0).length
@@ -35,7 +38,8 @@ export async function GET(req: NextRequest) {
       fuente: 'mock',
       nota: 'Precios aproximados en CLP. Fase 2 implementará scraping en tiempo real.',
     })
-  } catch (error) {
+  } catch {
+    logger.error('prices.compare.error')
     return apiError('Error al comparar precios', 500, 'GET /api/prices')
   }
 }
